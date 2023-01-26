@@ -38,11 +38,33 @@ int recvPacket(int fd, char* data, int maxlen)
     return received;
 }
 
-int checkUsername(char* username, client clients[], int client_count){
+void append(char** pdst, const char* src){
+    char *dst = *pdst; // Lay noi dung xau ky tu cu
+    int oldLen = (dst == NULL ? 0 : strlen(dst));
+    int newLen = oldLen + strlen(src) + 1; //Thua 1 byte \0
+    dst = (char*)realloc(dst, newLen);
+    // cap phat va memset ve 0 tu phan du lieu moi
+    memset(dst + oldLen, 0, strlen(src) + 1);
+    sprintf(dst + oldLen, "%s", src);
+    *pdst = dst;
+}
+
+int checkUsername(char* username, client* clients[], int client_count){
     for(int i = 0; i < client_count; i++){
-        if(strcmp(clients[i].username, username) == 0){
+        if(strcmp(clients[i]->username, username) == 0){
             return 0;
         }
     }
     return 1;
+}
+
+int login(char *username, char* password, client* clients[], int client_count){
+    for(int i = 0; i < client_count; i++){
+        if(strcmp(clients[i]->username, username) == 0 
+        && strcmp(clients[i]->password, password) == 0){
+            // TRA VE VI TRI HIEN TAI CUA USER TRONG LIST
+            return i;
+        }
+    }
+    return -1;
 }

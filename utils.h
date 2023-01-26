@@ -7,5 +7,7 @@ typedef struct client_t {
 
 int sendPacket(int fd, char* data, int len);
 int recvPacket(int fd, char* data, int maxlen);
+void append(char** pdst, const char* src);
 
-int checkUsername(char* username, client clients[], int client_count);
+int checkUsername(char* username, client* clients[], int client_count);
+int login(char *username, char* password, client* clients[], int client_count);

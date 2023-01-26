@@ -50,14 +50,23 @@ int handle_login(int cfd, char* buffer){
     char username[20] = { 0 };
     char password[20] = { 0 };
     sscanf(buffer, "%s %s %s", LOGIN, username, password);
-    int login_status = login(username, password, clients, g_clientcount);
-    if(login_status == -1){
-        char* msg = "Wrong username or password!";
+    // NEU THANH CONG SE LA VI TRI CUA USER TRONG LIST
+    int current_user_index = login(username, password, clients, g_clientcount);
+    if(current_user_index == -1){
+        char* msg = "Wrong username or password!\n";
         sendPacket(cfd, msg, strlen(msg));
     }else{
-        char* msg = "Logged in successfully! Room list:\n1\n2\n3\n4\n5\n";
+        char *msg;
+        if(!clients[current_user_index]->room) {
+            msg = "Logged in successfully! You haven't joined any room.Room list:\n1\n2\n3\n4\n5\n";
+        }else{
+            sprintf(msg, "Logged in successfully! Your current room: %d.Room list:\n1\n2\n3\n4\n5\n", clients[current_user_index]->room);
+        }
         sendPacket(cfd, msg, strlen(msg));
+        // THAY DOI SOCKET CU
+        clients[current_user_index]->cfd = cfd;
     }
+    return current_user_index;
 }
 
 void handle_register_room(int cfd, char* buffer, int current_user_index){
@@ -78,7 +87,7 @@ void send_msg_to_room(int room, int current_user_index, char* buffer){
         if(current_user_index == i) continue;
         char* msg = NULL;
         append(&msg, clients[current_user_index]->username);
-        append(&msg, ":");
+        append(&msg, ": ");
         append(&msg, buffer);
         if(clients[i]->room == room){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
@@ -94,29 +103,28 @@ void* handle_client(void* arg){
     while(1){
         char buffer[1024] = { 0 };
         int r = recv(cfd, buffer, sizeof(buffer), 0);
-        if(r > 0){
-            printf("Received: %s\n", buffer);\
-            // CHI CO REG VA LOGIN THUC HIEN DUOC KHI CHUA DANG NHAP
-            if(strncmp(buffer, "REG", 3) == 0){
-                current_user_index = handle_register(cfd, buffer);
-            }else if(strncmp(buffer, "LOGIN", 5) == 0){
-                current_user_index = handle_login(cfd, buffer);
+        if(r <= 0) sleep(100);
+        printf("Received: %s\n", buffer);\
+        // CHI CO REG VA LOGIN THUC HIEN DUOC KHI CHUA DANG NHAP
+        if(strncmp(buffer, "REG", 3) == 0){
+            current_user_index = handle_register(cfd, buffer);
+        }else if(strncmp(buffer, "LOGIN", 5) == 0){
+            current_user_index = handle_login(cfd, buffer);
+        }else{
+            if(current_user_index == -1){
+                char* msg = "You have not logged in\n";
+                sendPacket(cfd, msg, strlen(msg));
+            // PHAN XU LY KHI DA LOGIN THANH CONG
             }else{
-                if(current_user_index == -1){
-                    char* msg = "You have not logged in\n";
-                    sendPacket(cfd, msg, strlen(msg));
-                // PHAN XU LY KHI DA LOGIN THANH CONG
+                if(strncmp(buffer, "ROOM", 4) == 0){
+                    handle_register_room(cfd, buffer, current_user_index);
                 }else{
-                    if(strncmp(buffer, "ROOM", 4) == 0){
-                        handle_register_room(cfd, buffer, current_user_index);
+                    // KIEM TRA XEM CO PHONG CHUA
+                    if(!clients[current_user_index]->room){
+                        char* msg = "CANNOT chat! You have not registered room, use \"ROOM <number>\" to register.\n";
+                        sendPacket(cfd, msg, strlen(msg));
                     }else{
-                        // KIEM TRA XEM CO PHONG CHUA
-                        if(!clients[current_user_index]->room){
-                            char* msg = "CANNOT chat! You have not registered room, use \"ROOM <number>\" to register.\n";
-                            sendPacket(cfd, msg, strlen(msg));
-                        }else{
-                            send_msg_to_room(clients[current_user_index]->room, current_user_index, buffer);
-                        }
+                        send_msg_to_room(clients[current_user_index]->room, current_user_index, buffer);
                     }
                 }
             }

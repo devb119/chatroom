@@ -99,6 +99,15 @@ int handle_login(int cfd, char* buffer){
             char msg[1024] = { 0 };
             sprintf(msg, "Logged in successfully! Your current room: %d.\nRoom list:\n1\n2\n3\n4\n5\n", clients[current_user_index]->room);
             sendPacket(cfd, msg, strlen(msg));
+            for(int i = 0; i < g_clientcount; i++){
+                if(current_user_index == i) continue;
+                char msg[1024] = { 0 };
+                sprintf(msg, "%s has reconnected.\n", clients[current_user_index]->username);
+                if(clients[i]->room == clients[current_user_index]->room &&
+                clients[i]->online){
+                    sendPacket(clients[i]->cfd, msg, strlen(msg));
+                }
+            }
         }
         // THAY DOI SOCKET CU
         clients[current_user_index]->cfd = cfd;
@@ -111,6 +120,15 @@ int handle_login(int cfd, char* buffer){
 void handle_logout(int* current_user_index){
     int index = *current_user_index;
     clients[index]->online = 0;
+    for(int i = 0; i < g_clientcount; i++){
+        if(index == i) continue;
+        char msg[1024] = { 0 };
+        sprintf(msg, "%s has disconnected.\n", clients[index]->username);
+        if(clients[i]->room == clients[index]->room &&
+        clients[i]->online){
+            sendPacket(clients[i]->cfd, msg, strlen(msg));
+        }
+    }
     *current_user_index = -1;
 }
 
@@ -123,12 +141,25 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
         sendPacket(cfd, msg, strlen(msg));
         return;
     }
+    // THONG BAO CHO CAC THANH VIEN CON LAI TRONG NHOM CHAT
+    if(clients[current_user_index]->room)
+        for(int i = 0; i < g_clientcount; i++){
+            if(current_user_index == i) continue;
+            char msg[1024] = { 0 };
+            sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
+            if(clients[i]->room == clients[current_user_index]->room &&
+            clients[i]->online){
+                sendPacket(clients[i]->cfd, msg, strlen(msg));
+            }
+        }
+    // THONG BAO CHO CAC THANH VIEN RONG NHOM CHAT MOI
     clients[current_user_index]->room = room;
     for(int i = 0; i < g_clientcount; i++){
         if(current_user_index == i) continue;
         char msg[1024] = { 0 };
         sprintf(msg, "%s has joined the chat.\n", clients[current_user_index]->username);
-        if(clients[i]->room == clients[current_user_index]->room){
+        if(clients[i]->room == clients[current_user_index]->room &&
+        clients[i]->online){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
     }
@@ -142,7 +173,8 @@ void handle_leave_room(int current_user_index){
         if(current_user_index == i) continue;
         char msg[1024] = { 0 };
         sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
-        if(clients[i]->room == clients[current_user_index]->room){
+        if(clients[i]->room == clients[current_user_index]->room &&
+        clients[i]->online){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
     }

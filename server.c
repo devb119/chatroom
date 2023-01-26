@@ -79,17 +79,36 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
         return;
     }
     clients[current_user_index]->room = room;
+    for(int i = 0; i < g_clientcount; i++){
+        if(current_user_index == i) continue;
+        char msg[1024] = { 0 };
+        sprintf(msg, "%s has joined the chat.", clients[current_user_index]->username);
+        if(clients[i]->room == clients[current_user_index]->room){
+            sendPacket(clients[i]->cfd, msg, strlen(msg));
+        }
+    }
     return;
 }
 
-void send_msg_to_room(int room, int current_user_index, char* buffer){
+void handle_leave_room(int current_user_index){
+    for(int i = 0; i < g_clientcount; i++){
+        if(current_user_index == i) continue;
+        char msg[1024] = { 0 };
+        sprintf(msg, "%s has left the chat.", clients[current_user_index]->username);
+        if(clients[i]->room == clients[current_user_index]->room){
+            sendPacket(clients[i]->cfd, msg, strlen(msg));
+        }
+    }
+}
+
+void send_msg_to_room(int current_user_index, char* buffer){
     for(int i = 0; i < g_clientcount; i++){
         if(current_user_index == i) continue;
         char* msg = NULL;
         append(&msg, clients[current_user_index]->username);
         append(&msg, ": ");
         append(&msg, buffer);
-        if(clients[i]->room == room){
+        if(clients[i]->room == clients[current_user_index]->room){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
     }
@@ -118,13 +137,17 @@ void* handle_client(void* arg){
             }else{
                 if(strncmp(buffer, "ROOM", 4) == 0){
                     handle_register_room(cfd, buffer, current_user_index);
+                }else if(strncmp(buffer, "LEAVE", 5) == 0){
+                    handle_leave_room(current_user_index);
+                }else if(strncmp(buffer, "LOGOUT", 6) == 0){
+                    current_user_index = -1;
                 }else{
                     // KIEM TRA XEM CO PHONG CHUA
                     if(!clients[current_user_index]->room){
                         char* msg = "CANNOT chat! You have not registered room, use \"ROOM <number>\" to register.\n";
                         sendPacket(cfd, msg, strlen(msg));
                     }else{
-                        send_msg_to_room(clients[current_user_index]->room, current_user_index, buffer);
+                        send_msg_to_room(current_user_index, buffer);
                     }
                 }
             }

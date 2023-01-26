@@ -22,6 +22,35 @@ typedef struct sockaddr SOCKADDR;
 client* clients[MAX_CLIENT];
 int g_clientcount = 0;
 
+void read_clients_file(){
+    FILE* f = fopen("clients.bin", "rt");
+    while(!feof(f)){
+        char s[1024] = { 0 };
+        fgets(s, sizeof(s), f);
+        int cfd, room;
+        char username[20] = { 0 };
+        char password[20] = { 0 };
+        sscanf(s, "%d %s %s %d", &cfd, username, password, &room);
+        client *new_client = (client*)calloc(1, sizeof(client));
+        new_client->cfd = cfd;
+        new_client->username = strdup(username);
+        new_client->password = strdup(password);
+        new_client->room = room;
+        // LUU VAO DANH SACH
+        clients[g_clientcount++] = new_client;
+    }
+    fclose(f);
+}
+
+void write_clients_file(){
+    FILE* f = fopen("clients.bin", "wt");
+    for(int i = 0; i < g_clientcount; i++){
+        fprintf(f, "%d %s %s %d\n", clients[i]->cfd, clients[i]->username, 
+        clients[i]->password, clients[i]->room);
+    }
+    fclose(f);
+}
+
 int handle_register(int cfd, char* buffer){
     char REG[5] = { 0 };
     char username[20] = { 0 };
@@ -41,6 +70,7 @@ int handle_register(int cfd, char* buffer){
     clients[g_clientcount++] = new_client;
     char* msg = "Registered successfully! Room list:\n1\n2\n3\n4\n5\n";
     sendPacket(cfd, msg, strlen(msg));
+    write_clients_file();
     // TRA VE VI TRI TRONG DANH SACH
     return g_clientcount - 1;
 }
@@ -66,6 +96,7 @@ int handle_login(int cfd, char* buffer){
         }
         // THAY DOI SOCKET CU
         clients[current_user_index]->cfd = cfd;
+        write_clients_file();
     }
     return current_user_index;
 }
@@ -88,6 +119,7 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
     }
+    write_clients_file();
     return;
 }
 
@@ -103,6 +135,7 @@ void handle_leave_room(int current_user_index){
     }
     // DAT LAI SO PHONG CUA USER
     clients[current_user_index]->room = 0;
+    write_clients_file();
 }
 
 void send_msg_to_room(int current_user_index, char* buffer){
@@ -160,7 +193,16 @@ void* handle_client(void* arg){
     }
 }
 
+void free_clients(){
+    for(int i = 0; i < g_clientcount; i++){
+        free(clients[i]->username);
+        free(clients[i]->password);
+        free(clients[i]);
+    }
+}
+
 int main(){
+    read_clients_file();
     int sfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     SOCKADDR_IN saddr, caddr;
     int clen = sizeof(caddr);
@@ -176,5 +218,7 @@ int main(){
         *arg = cfd;
         pthread_create(&pid, NULL, handle_client, arg);
     }
+    write_clients_file();
+    free_clients();
     close(sfd);
 } 

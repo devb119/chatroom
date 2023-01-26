@@ -58,9 +58,9 @@ int handle_login(int cfd, char* buffer){
     }else{
         char *msg;
         if(!clients[current_user_index]->room) {
-            msg = "Logged in successfully! You haven't joined any room.Room list:\n1\n2\n3\n4\n5\n";
+            msg = "Logged in successfully! You haven't joined any room.\nRoom list:\n1\n2\n3\n4\n5\n";
         }else{
-            sprintf(msg, "Logged in successfully! Your current room: %d.Room list:\n1\n2\n3\n4\n5\n", clients[current_user_index]->room);
+            sprintf(msg, "Logged in successfully! Your current room: %d.\nRoom list:\n1\n2\n3\n4\n5\n", clients[current_user_index]->room);
         }
         sendPacket(cfd, msg, strlen(msg));
         // THAY DOI SOCKET CU
@@ -82,7 +82,7 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
     for(int i = 0; i < g_clientcount; i++){
         if(current_user_index == i) continue;
         char msg[1024] = { 0 };
-        sprintf(msg, "%s has joined the chat.", clients[current_user_index]->username);
+        sprintf(msg, "%s has joined the chat.\n", clients[current_user_index]->username);
         if(clients[i]->room == clients[current_user_index]->room){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
@@ -91,14 +91,17 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
 }
 
 void handle_leave_room(int current_user_index){
+    // GUI THONG BAO TOI CAC THANH VIEN TRONG DOAN CHAT
     for(int i = 0; i < g_clientcount; i++){
         if(current_user_index == i) continue;
         char msg[1024] = { 0 };
-        sprintf(msg, "%s has left the chat.", clients[current_user_index]->username);
+        sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
         if(clients[i]->room == clients[current_user_index]->room){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
     }
+    // DAT LAI SO PHONG CUA USER
+    clients[current_user_index]->room = 0;
 }
 
 void send_msg_to_room(int current_user_index, char* buffer){
@@ -163,7 +166,7 @@ int main(){
     saddr.sin_port = htons(5000);
     saddr.sin_addr.s_addr = 0;
     bind(sfd, (SOCKADDR*)&saddr, sizeof(saddr));
-    listen(sfd, 10);
+    listen(sfd, 20);
     while(1){
         int cfd = accept(sfd, (SOCKADDR*)&caddr, &clen);
         pthread_t pid;

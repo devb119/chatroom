@@ -3,6 +3,7 @@ typedef struct client_t {
     char* username;
     char* password;
     int room;
+    int online;
 }client;
 
 int sendPacket(int fd, char* data, int len);

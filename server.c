@@ -27,6 +27,10 @@ void read_clients_file(){
     while(!feof(f)){
         char s[1024] = { 0 };
         fgets(s, sizeof(s), f);
+        if(strlen(s) < 2){
+            break;
+        }
+        printf("Read: %s", s);
         int cfd, room;
         char username[20] = { 0 };
         char password[20] = { 0 };
@@ -36,6 +40,7 @@ void read_clients_file(){
         new_client->username = strdup(username);
         new_client->password = strdup(password);
         new_client->room = room;
+        new_client->online = 0;
         // LUU VAO DANH SACH
         clients[g_clientcount++] = new_client;
     }
@@ -66,6 +71,7 @@ int handle_register(int cfd, char* buffer){
     new_client->username = strdup(username);
     new_client->password = strdup(password);
     new_client->room = 0;
+    new_client->online = 1;
     // LUU VAO DANH SACH
     clients[g_clientcount++] = new_client;
     char* msg = "Registered successfully! Room list:\n1\n2\n3\n4\n5\n";
@@ -96,9 +102,16 @@ int handle_login(int cfd, char* buffer){
         }
         // THAY DOI SOCKET CU
         clients[current_user_index]->cfd = cfd;
+        clients[current_user_index]->online = 1;
         write_clients_file();
     }
     return current_user_index;
+}
+
+void handle_logout(int* current_user_index){
+    int index = *current_user_index;
+    clients[index]->online = 0;
+    *current_user_index = -1;
 }
 
 void handle_register_room(int cfd, char* buffer, int current_user_index){
@@ -145,7 +158,8 @@ void send_msg_to_room(int current_user_index, char* buffer){
         append(&msg, clients[current_user_index]->username);
         append(&msg, ": ");
         append(&msg, buffer);
-        if(clients[i]->room == clients[current_user_index]->room){
+        if(clients[i]->room == clients[current_user_index]->room &&
+        clients[i]->online){
             sendPacket(clients[i]->cfd, msg, strlen(msg));
         }
     }
@@ -177,7 +191,7 @@ void* handle_client(void* arg){
                     }else if(strncmp(buffer, "LEAVE", 5) == 0){
                         handle_leave_room(current_user_index);
                     }else if(strncmp(buffer, "LOGOUT", 6) == 0){
-                        current_user_index = -1;
+                        handle_logout(&current_user_index);
                     }else{
                         // KIEM TRA XEM CO PHONG CHUA
                         if(!clients[current_user_index]->room){

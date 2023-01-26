@@ -141,6 +141,13 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
         sendPacket(cfd, msg, strlen(msg));
         return;
     }
+    // XU LY CHON TRUNG ROOM
+    if(clients[current_user_index]->room == room){
+        char msg[1024] = { 0 };
+        sprintf(msg, "You are already in room %d\n", clients[current_user_index]->room);
+        sendPacket(cfd, msg, strlen(msg));
+        return;
+    }
     // THONG BAO CHO CAC THANH VIEN CON LAI TRONG NHOM CHAT
     if(clients[current_user_index]->room)
         for(int i = 0; i < g_clientcount; i++){

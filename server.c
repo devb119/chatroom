@@ -56,13 +56,14 @@ int handle_login(int cfd, char* buffer){
         char* msg = "Wrong username or password!\n";
         sendPacket(cfd, msg, strlen(msg));
     }else{
-        char *msg;
         if(!clients[current_user_index]->room) {
-            msg = "Logged in successfully! You haven't joined any room.\nRoom list:\n1\n2\n3\n4\n5\n";
+            char *msg = "Logged in successfully! You haven't joined any room.\nRoom list:\n1\n2\n3\n4\n5\n";
+            sendPacket(cfd, msg, strlen(msg));
         }else{
+            char msg[1024] = { 0 };
             sprintf(msg, "Logged in successfully! Your current room: %d.\nRoom list:\n1\n2\n3\n4\n5\n", clients[current_user_index]->room);
+            sendPacket(cfd, msg, strlen(msg));
         }
-        sendPacket(cfd, msg, strlen(msg));
         // THAY DOI SOCKET CU
         clients[current_user_index]->cfd = cfd;
     }
@@ -125,32 +126,33 @@ void* handle_client(void* arg){
     while(1){
         char buffer[1024] = { 0 };
         int r = recv(cfd, buffer, sizeof(buffer), 0);
-        if(r <= 0) sleep(100);
-        printf("Received: %s\n", buffer);\
-        // CHI CO REG VA LOGIN THUC HIEN DUOC KHI CHUA DANG NHAP
-        if(strncmp(buffer, "REG", 3) == 0){
-            current_user_index = handle_register(cfd, buffer);
-        }else if(strncmp(buffer, "LOGIN", 5) == 0){
-            current_user_index = handle_login(cfd, buffer);
-        }else{
-            if(current_user_index == -1){
-                char* msg = "You have not logged in\n";
-                sendPacket(cfd, msg, strlen(msg));
-            // PHAN XU LY KHI DA LOGIN THANH CONG
+        if(r > 0) {
+            printf("Received: %s\n", buffer);\
+            // CHI CO REG VA LOGIN THUC HIEN DUOC KHI CHUA DANG NHAP
+            if(strncmp(buffer, "REG", 3) == 0){
+                current_user_index = handle_register(cfd, buffer);
+            }else if(strncmp(buffer, "LOGIN", 5) == 0){
+                current_user_index = handle_login(cfd, buffer);
             }else{
-                if(strncmp(buffer, "ROOM", 4) == 0){
-                    handle_register_room(cfd, buffer, current_user_index);
-                }else if(strncmp(buffer, "LEAVE", 5) == 0){
-                    handle_leave_room(current_user_index);
-                }else if(strncmp(buffer, "LOGOUT", 6) == 0){
-                    current_user_index = -1;
+                if(current_user_index == -1){
+                    char* msg = "You have not logged in\n";
+                    sendPacket(cfd, msg, strlen(msg));
+                // PHAN XU LY KHI DA LOGIN THANH CONG
                 }else{
-                    // KIEM TRA XEM CO PHONG CHUA
-                    if(!clients[current_user_index]->room){
-                        char* msg = "CANNOT chat! You have not registered room, use \"ROOM <number>\" to register.\n";
-                        sendPacket(cfd, msg, strlen(msg));
+                    if(strncmp(buffer, "ROOM", 4) == 0){
+                        handle_register_room(cfd, buffer, current_user_index);
+                    }else if(strncmp(buffer, "LEAVE", 5) == 0){
+                        handle_leave_room(current_user_index);
+                    }else if(strncmp(buffer, "LOGOUT", 6) == 0){
+                        current_user_index = -1;
                     }else{
-                        send_msg_to_room(current_user_index, buffer);
+                        // KIEM TRA XEM CO PHONG CHUA
+                        if(!clients[current_user_index]->room){
+                            char* msg = "CANNOT chat! You have not registered room, use \"ROOM <number>\" to register.\n";
+                            sendPacket(cfd, msg, strlen(msg));
+                        }else{
+                            send_msg_to_room(current_user_index, buffer);
+                        }
                     }
                 }
             }

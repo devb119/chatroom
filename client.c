@@ -26,15 +26,29 @@ void *listen_from_server(void *arg)
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    char addr[1024] = {0};
+    if (argc == 1)
+    {
+        strcpy(addr, "127.0.0.1");
+    }
+    else
+    {
+        strcpy(addr, argv[1]);
+    }
     int sfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     SOCKADDR_IN saddr, caddr;
     int clen = sizeof(caddr);
     saddr.sin_family = AF_INET;
     saddr.sin_port = htons(5000);
-    saddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    connect(sfd, (SOCKADDR *)&saddr, sizeof(saddr));
+    saddr.sin_addr.s_addr = inet_addr(addr);
+    int result = connect(sfd, (SOCKADDR *)&saddr, sizeof(saddr));
+    if (result != 0)
+    {
+        printf("Can not connect to server\n");
+        return -1;
+    }
     pthread_t pid;
     int *arg = (int *)calloc(1, sizeof(int));
     *arg = sfd;

@@ -121,7 +121,11 @@ void handle_logout(int* current_user_index){
     int index = *current_user_index;
     clients[index]->online = 0;
     for(int i = 0; i < g_clientcount; i++){
-        if(index == i) continue;
+        if(index == i) {
+            char *msg = "Logged out successfully";
+            sendPacket(clients[i]->cfd, msg, strlen(msg));
+            continue;
+        };
         char msg[1024] = { 0 };
         sprintf(msg, "%s has disconnected.\n", clients[index]->username);
         if(clients[i]->room == clients[index]->room &&
@@ -162,7 +166,12 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
     // THONG BAO CHO CAC THANH VIEN RONG NHOM CHAT MOI
     clients[current_user_index]->room = room;
     for(int i = 0; i < g_clientcount; i++){
-        if(current_user_index == i) continue;
+        if(current_user_index == i) {
+            char msg[1024] = { 0 };
+            sprintf(msg, "You have joined room %d.\n", room);
+            sendPacket(clients[i]->cfd, msg, strlen(msg));
+            continue;
+        };
         char msg[1024] = { 0 };
         sprintf(msg, "%s has joined the chat.\n", clients[current_user_index]->username);
         if(clients[i]->room == clients[current_user_index]->room &&
@@ -177,7 +186,11 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
 void handle_leave_room(int current_user_index){
     // GUI THONG BAO TOI CAC THANH VIEN TRONG DOAN CHAT
     for(int i = 0; i < g_clientcount; i++){
-        if(current_user_index == i) continue;
+        if(current_user_index == i) {
+            char *msg = "Leave room successfully";
+            sendPacket(clients[i]->cfd, msg, strlen(msg));
+            continue;
+        };
         char msg[1024] = { 0 };
         sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
         if(clients[i]->room == clients[current_user_index]->room &&

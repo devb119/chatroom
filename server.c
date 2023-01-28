@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <ctype.h>
 
 #include "utils.c"
 
@@ -54,6 +55,19 @@ void write_clients_file(){
         clients[i]->password, clients[i]->room);
     }
     fclose(f);
+}
+
+void send_server_noti(int current_user_index, char* current_user_msg, char* room_msg){
+    for(int i = 0; i < g_clientcount; i++){
+        if(current_user_index == i) {
+            sendPacket(clients[i]->cfd, current_user_msg, strlen(current_user_msg));
+            continue;
+        };
+        if(clients[i]->room == clients[current_user_index]->room &&
+        clients[i]->online){
+            sendPacket(clients[i]->cfd, room_msg, strlen(room_msg));
+        }
+    }
 }
 
 int handle_register(int cfd, char* buffer){
@@ -120,19 +134,9 @@ int handle_login(int cfd, char* buffer){
 void handle_logout(int* current_user_index){
     int index = *current_user_index;
     clients[index]->online = 0;
-    for(int i = 0; i < g_clientcount; i++){
-        if(index == i) {
-            char *msg = "Logged out successfully";
-            sendPacket(clients[i]->cfd, msg, strlen(msg));
-            continue;
-        };
-        char msg[1024] = { 0 };
-        sprintf(msg, "%s has disconnected.\n", clients[index]->username);
-        if(clients[i]->room == clients[index]->room &&
-        clients[i]->online){
-            sendPacket(clients[i]->cfd, msg, strlen(msg));
-        }
-    }
+    char room_msg[1024] = { 0 };
+    sprintf(room_msg, "%s has disconnected.\n", clients[index]->username);
+    send_server_noti(index, "Logged out successfully\n", room_msg);
     *current_user_index = -1;
 }
 
@@ -153,54 +157,47 @@ void handle_register_room(int cfd, char* buffer, int current_user_index){
         return;
     }
     // THONG BAO CHO CAC THANH VIEN CON LAI TRONG NHOM CHAT
-    if(clients[current_user_index]->room)
-        for(int i = 0; i < g_clientcount; i++){
-            if(current_user_index == i) continue;
-            char msg[1024] = { 0 };
-            sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
-            if(clients[i]->room == clients[current_user_index]->room &&
-            clients[i]->online){
-                sendPacket(clients[i]->cfd, msg, strlen(msg));
-            }
-        }
+    if(clients[current_user_index]->room){
+        char msg[1024] = { 0 };
+        sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
+        send_server_noti(current_user_index, "", msg);
+    }
     // THONG BAO CHO CAC THANH VIEN RONG NHOM CHAT MOI
     clients[current_user_index]->room = room;
-    for(int i = 0; i < g_clientcount; i++){
-        if(current_user_index == i) {
-            char msg[1024] = { 0 };
-            sprintf(msg, "You have joined room %d.\n", room);
-            sendPacket(clients[i]->cfd, msg, strlen(msg));
-            continue;
-        };
-        char msg[1024] = { 0 };
-        sprintf(msg, "%s has joined the chat.\n", clients[current_user_index]->username);
-        if(clients[i]->room == clients[current_user_index]->room &&
-        clients[i]->online){
-            sendPacket(clients[i]->cfd, msg, strlen(msg));
-        }
-    }
+    char current_user_msg[1024] = { 0 };
+    sprintf(current_user_msg, "You have joined room %d.\n", room);
+    char room_msg[1024] = { 0 };
+    sprintf(room_msg, "%s has joined the chat.\n", clients[current_user_index]->username);
+    send_server_noti(current_user_index, current_user_msg, room_msg);
     write_clients_file();
     return;
 }
 
 void handle_leave_room(int current_user_index){
     // GUI THONG BAO TOI CAC THANH VIEN TRONG DOAN CHAT
-    for(int i = 0; i < g_clientcount; i++){
-        if(current_user_index == i) {
-            char *msg = "Leave room successfully";
-            sendPacket(clients[i]->cfd, msg, strlen(msg));
-            continue;
-        };
-        char msg[1024] = { 0 };
-        sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
-        if(clients[i]->room == clients[current_user_index]->room &&
-        clients[i]->online){
-            sendPacket(clients[i]->cfd, msg, strlen(msg));
-        }
-    }
+    char msg[1024] = { 0 };
+    sprintf(msg, "%s has left the chat.\n", clients[current_user_index]->username);
+    send_server_noti(current_user_index, "Leave room successfully\n", msg);
     // DAT LAI SO PHONG CUA USER
     clients[current_user_index]->room = 0;
     write_clients_file();
+}
+
+void handle_recv_file(int cfd, char* buffer, int current_user_index) {
+    char POST[10] = { 0 };
+    char filename[100] = { 0 };
+    int content_length = 0;
+    sscanf(buffer, "%s %s %d", POST, filename, &content_length);
+    char* data = (char*)calloc(content_length, 1);
+    recvPacket(cfd, data, content_length);
+    char* saved_filename = create_save_path("./server_file_storage/", filename);
+    FILE* f = fopen(saved_filename, "wb");
+    fwrite(data, 1, content_length, f);
+    fclose(f);
+    char room_msg[1024] = { 0 };
+    sprintf(room_msg, "%s has uploaded a file. Use 'GET %s' to download.\n", 
+    clients[current_user_index]->username, saved_filename);
+    send_server_noti(current_user_index, "File uploaded successfully\n", room_msg);
 }
 
 void send_msg_to_room(int current_user_index, char* buffer){
@@ -226,7 +223,7 @@ void* handle_client(void* arg){
         char buffer[1024] = { 0 };
         int r = recv(cfd, buffer, sizeof(buffer), 0);
         if(r > 0) {
-            printf("Received: %s\n", buffer);\
+            printf("Received: %s\n", buffer);
             // CHI CO REG VA LOGIN THUC HIEN DUOC KHI CHUA DANG NHAP
             if(strncmp(buffer, "REG", 3) == 0){
                 current_user_index = handle_register(cfd, buffer);
@@ -244,6 +241,8 @@ void* handle_client(void* arg){
                         handle_leave_room(current_user_index);
                     }else if(strncmp(buffer, "LOGOUT", 6) == 0){
                         handle_logout(&current_user_index);
+                    }else if(strncmp(buffer, "POST", 4) == 0) {
+                        handle_recv_file(cfd, buffer, current_user_index);
                     }else{
                         // KIEM TRA XEM CO PHONG CHUA
                         if(!clients[current_user_index]->room){

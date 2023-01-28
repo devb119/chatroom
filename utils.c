@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <time.h>
+#include <libgen.h>
 
 #include "utils.h"
 
@@ -47,6 +49,38 @@ void append(char** pdst, const char* src){
     memset(dst + oldLen, 0, strlen(src) + 1);
     sprintf(dst + oldLen, "%s", src);
     *pdst = dst;
+}
+
+long int get_current_time(){
+    long int seconds;
+    seconds = (long int)time(NULL);
+    return seconds;
+}
+
+const char *get_filename_ext(const char *filename) {
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
+}
+
+char *get_filename(char* filename){
+    return strtok(filename, ".");
+}
+
+char *create_save_path(char* save_dir, char* filename){
+    long int time = get_current_time();
+    char *ext = (char*)get_filename_ext(filename);
+    char *saved_filename = NULL;
+    append(&saved_filename, save_dir);
+    append(&saved_filename, strdup(get_filename(filename)));
+    append(&saved_filename, "-");
+    char str_time[256];
+    sprintf(str_time, "%ld", time);
+    append(&saved_filename, str_time);
+    append(&saved_filename, ".");
+    append(&saved_filename, ext);
+    printf("%s\n", saved_filename);
+    return saved_filename;
 }
 
 int checkUsername(char* username, client* clients[], int client_count){

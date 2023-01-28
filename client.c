@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
         }
         else if (strncmp(mes, "POST", 4) == 0)
         {
-            char fileName[1024] = {0};
+            char fileName[100] = {0};
             sscanf(mes, "POST %s\n", fileName);
             // if (fileName[strlen(fileName) - 1] == '\n')
             // {

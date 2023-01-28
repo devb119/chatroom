@@ -208,6 +208,7 @@ void handle_send_file(int cfd, char* buffer, int current_user_index){
     char *path = NULL;
     append(&path, g_path);
     append(&path, filename);
+    printf("%s\n", path);
     FILE *f = fopen(path, "rb");
     if( f!= NULL){
         fseek(f, 0, SEEK_END);
@@ -217,8 +218,20 @@ void handle_send_file(int cfd, char* buffer, int current_user_index){
         fread(data, 1, fsize, f);
         char msg[1024] = { 0 };
         sprintf(msg, "GET %s %d", filename, fsize);
-        sendPacket(cfd, msg, strlen(msg));
-        sendPacket(cfd, data, strlen(data));
+        int sent = 0;
+        while (sent < strlen(msg))
+        {
+            int tmp = send(cfd, msg + sent, strlen(msg) - sent, 0);
+            sent += tmp;
+        }
+
+        // printf("%s", mes);
+
+        sent = 0;
+        do
+        {
+            sent += send(cfd, data + sent, fsize - sent, 0);
+        } while (sent >= 0 && sent < fsize);
     }else{
         char* msg = "Cannot find file with that name.";
         sendPacket(cfd, msg, strlen(msg));

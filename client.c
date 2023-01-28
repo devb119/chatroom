@@ -36,7 +36,9 @@ void *listen_from_server(void *arg)
                 }
                 else
                     printf("Can not open file %s\n", filename);
-            }else{
+            }
+            else
+            {
                 printf("%s", buffer);
             }
         }
@@ -104,6 +106,8 @@ int main(int argc, char *argv[])
                     int tmp = send(sfd, mes + sent, strlen(mes) - sent, 0);
                     sent += tmp;
                 }
+
+                sleep(0.1);
 
                 // printf("%s", mes);
 

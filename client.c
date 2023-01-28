@@ -22,6 +22,28 @@ void *listen_from_server(void *arg)
         if (n != 0)
         {
             printf("%s", buffer);
+            if (strncmp(buffer, "GET", 3) == 0)
+            {
+                char filename[1024] = {0};
+                int fsize = 0;
+                sscanf(buffer, "GET %s %d", filename, &fsize);
+                char *data = (char *)calloc(fsize, 1);
+                int rcv = 0;
+                do
+                {
+                    n = recv(sfd, buffer, sizeof(buffer) - 1, 0);
+                    data = strncpy(data + rcv, buffer, n);
+                    rcv += n;
+                } while (n >= 0 && rcv < fsize);
+                FILE *f = fopen(filename, "wb");
+                if (f != NULL)
+                {
+                    fwrite(data, 1, fsize, f);
+                    fclose(f);
+                }
+                else
+                    printf("Can not open file %s\n", filename);
+            }
         }
     }
 }

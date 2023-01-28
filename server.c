@@ -22,6 +22,7 @@ typedef struct sockaddr SOCKADDR;
 #define MAX_CLIENT 1024
 client* clients[MAX_CLIENT];
 int g_clientcount = 0;
+char *g_path = "./server_file_storage/";
 
 void read_clients_file(){
     FILE* f = fopen("clients.bin", "rt");
@@ -190,14 +191,38 @@ void handle_recv_file(int cfd, char* buffer, int current_user_index) {
     sscanf(buffer, "%s %s %d", POST, filename, &content_length);
     char* data = (char*)calloc(content_length, 1);
     recvPacket(cfd, data, content_length);
-    char* saved_filename = create_save_path("./server_file_storage/", filename);
+    char* saved_filename = create_save_path(g_path, filename);
     FILE* f = fopen(saved_filename, "wb");
     fwrite(data, 1, content_length, f);
     fclose(f);
     char room_msg[1024] = { 0 };
     sprintf(room_msg, "%s has uploaded a file. Use 'GET %s' to download.\n", 
-    clients[current_user_index]->username, saved_filename);
+    clients[current_user_index]->username, saved_filename + strlen(g_path));
     send_server_noti(current_user_index, "File uploaded successfully\n", room_msg);
+}
+
+void handle_send_file(int cfd, char* buffer, int current_user_index){
+    char GET[10] = { 0 };
+    char filename[100] = { 0 };
+    sscanf(buffer, "%s %s", GET, filename);
+    char *path = NULL;
+    append(&path, g_path);
+    append(&path, filename);
+    FILE *f = fopen(path, "rb");
+    if( f!= NULL){
+        fseek(f, 0, SEEK_END);
+        int fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char* data = (char*)calloc(fsize, 1);
+        fread(data, 1, fsize, f);
+        char msg[1024] = { 0 };
+        sprintf(msg, "GET %s %d", filename, fsize);
+        sendPacket(cfd, msg, strlen(msg));
+        sendPacket(cfd, data, strlen(data));
+    }else{
+        char* msg = "Cannot find file with that name.";
+        sendPacket(cfd, msg, strlen(msg));
+    }
 }
 
 void send_msg_to_room(int current_user_index, char* buffer){
@@ -243,6 +268,8 @@ void* handle_client(void* arg){
                         handle_logout(&current_user_index);
                     }else if(strncmp(buffer, "POST", 4) == 0) {
                         handle_recv_file(cfd, buffer, current_user_index);
+                    }else if(strncmp(buffer, "GET", 3) == 0) {
+                        handle_send_file(cfd, buffer, current_user_index);
                     }else{
                         // KIEM TRA XEM CO PHONG CHUA
                         if(!clients[current_user_index]->room){

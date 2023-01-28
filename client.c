@@ -67,13 +67,48 @@ int main(int argc, char *argv[])
         {
             char fileName[1024] = {0};
             sscanf(mes, "POST %s\n", fileName);
-            printf("File name: %s\n", fileName);
+            // if (fileName[strlen(fileName) - 1] == '\n')
+            // {
+            //     fileName[strlen(fileName) - 1] = 0;
+            // }
+            // printf("File name: %s\n", fileName);
+            FILE *f = fopen(fileName, "rb");
+            if (f != NULL)
+            {
+                fseek(f, 0, SEEK_END);
+                int fsize = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                char *data = (char *)calloc(fsize, 1);
+                fread(data, 1, fsize, f);
+                sprintf(mes, "POST %s %d", fileName, fsize);
+                int sent = 0;
+                while (sent < strlen(mes))
+                {
+                    int tmp = send(sfd, mes + sent, strlen(mes) - sent, 0);
+                    sent += tmp;
+                }
+
+                // printf("%s", mes);
+
+                sent = 0;
+                do
+                {
+                    sent += send(sfd, data + sent, fsize - sent, 0);
+                } while (sent >= 0 && sent < fsize);
+            }
+            else
+            {
+                printf("Failed to load file\n");
+            }
         }
-        int sent = 0;
-        while (sent < strlen(mes))
+        else
         {
-            int tmp = send(sfd, mes + sent, strlen(mes) - sent, 0);
-            sent += tmp;
+            int sent = 0;
+            while (sent < strlen(mes))
+            {
+                int tmp = send(sfd, mes + sent, strlen(mes) - sent, 0);
+                sent += tmp;
+            }
         }
     }
     close(sfd);

@@ -63,6 +63,12 @@ int main(int argc, char *argv[])
         {
             break;
         }
+        else if (strncmp(mes, "POST", 4) == 0)
+        {
+            char fileName[1024] = {0};
+            sscanf(mes, "POST %s\n", fileName);
+            printf("File name: %s\n", fileName);
+        }
         int sent = 0;
         while (sent < strlen(mes))
         {
